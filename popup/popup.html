@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readable</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Readable</h1>
+    <p class="subtitle">Swipeable Article Reader</p>
+
+    <div class="settings">
+      <div class="setting-group">
+        <label for="chunkSize">Chunk Size (words)</label>
+        <div class="slider-container">
+          <input type="range" id="chunkSize" min="50" max="500" step="25" value="100">
+          <span id="chunkSizeValue">100</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label for="questionInterval">Quiz Interval (every N chunks)</label>
+        <div class="slider-container">
+          <input type="range" id="questionInterval" min="1" max="10" step="1" value="3">
+          <span id="questionIntervalValue">3</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label for="apiKey">Gemini API Key (optional)</label>
+        <input type="password" id="apiKey" placeholder="Enter API key for quiz questions">
+        <p class="hint">Required for AI-generated quiz questions</p>
+      </div>
+    </div>
+
+    <button id="startBtn" class="primary-btn">Start Reading</button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
