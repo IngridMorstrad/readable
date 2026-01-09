@@ -16,7 +16,7 @@ Turn any article into a TikTok-style swipeable experience with optional AI-power
 ## Installation
 
 ### Chrome Web Store (Recommended)
-[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/readable/YOUR_EXTENSION_ID)
+[Install from Chrome Web Store](https://chrome.google.com/webstore/detail/readable/cegfoepnghfonapjdmjiigdekdnhnjof)
 
 ### Manual Installation
 1. Download or clone this repo
