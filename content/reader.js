@@ -52,6 +52,55 @@ var Reader = (function() {
   }
 
   /**
+   * Extract content from a node, preserving links as HTML
+   * Returns { text: string, html: string }
+   */
+  function extractWithLinks(node) {
+    var text = '';
+    var html = '';
+
+    function processChild(child) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        var t = child.textContent;
+        text += t;
+        html += escapeHtmlForLinks(t);
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (child.tagName === 'A') {
+          var href = child.getAttribute('href') || '';
+          var linkText = child.textContent;
+          text += linkText;
+          html += '<a href="' + escapeHtmlForLinks(href) + '" target="_blank" rel="noopener">' + escapeHtmlForLinks(linkText) + '</a>';
+        } else if (child.tagName === 'BR') {
+          text += ' ';
+          html += '<br>';
+        } else {
+          // Recursively process other elements
+          for (var i = 0; i < child.childNodes.length; i++) {
+            processChild(child.childNodes[i]);
+          }
+        }
+      }
+    }
+
+    for (var i = 0; i < node.childNodes.length; i++) {
+      processChild(node.childNodes[i]);
+    }
+
+    return { text: text.trim(), html: html.trim() };
+  }
+
+  /**
+   * Escape HTML for link preservation (used before we have escapeHtml in scope)
+   */
+  function escapeHtmlForLinks(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /**
    * Extract article content from the page
    */
   function extractArticle() {
@@ -118,14 +167,14 @@ var Reader = (function() {
         return results;
       }
 
-      // Handle lists
+      // Handle lists - preserve links in items
       if (tagName === 'UL' || tagName === 'OL') {
         var items = [];
         var listItems = node.querySelectorAll(':scope > li');
         listItems.forEach(function(li) {
-          var text = li.textContent.trim();
-          if (text) {
-            items.push(text);
+          var extracted = extractWithLinks(li);
+          if (extracted.text) {
+            items.push({ text: extracted.text, html: extracted.html });
           }
         });
         if (items.length > 0) {
@@ -150,23 +199,37 @@ var Reader = (function() {
         return results;
       }
 
-      // Handle blockquotes
+      // Handle blockquotes - preserve links and extract embedded images
       if (tagName === 'BLOCKQUOTE') {
-        var quote = node.textContent.trim();
-        if (quote) {
+        // Extract any images within the blockquote
+        var embeddedImages = node.querySelectorAll('img');
+        embeddedImages.forEach(function(img) {
+          var imgSrc = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+          if (imgSrc && !imgSrc.startsWith('data:image/gif')) {
+            results.push({
+              type: 'image',
+              src: imgSrc,
+              alt: img.alt || ''
+            });
+          }
+        });
+
+        var extracted = extractWithLinks(node);
+        if (extracted.text) {
           results.push({
             type: 'quote',
-            content: quote
+            content: extracted.text,
+            html: extracted.html
           });
         }
         return results;
       }
 
-      // Handle images
+      // Handle images (including lazy-loaded with data-src)
       if (tagName === 'IMG') {
-        var src = node.src;
+        var src = node.src || node.getAttribute('data-src') || node.getAttribute('data-lazy-src');
         var alt = node.alt || '';
-        if (src) {
+        if (src && !src.startsWith('data:image/gif')) { // Skip placeholder gifs
           results.push({
             type: 'image',
             src: src,
@@ -180,24 +243,41 @@ var Reader = (function() {
       if (tagName === 'FIGURE') {
         var img = node.querySelector('img');
         var caption = node.querySelector('figcaption');
-        if (img && img.src) {
-          results.push({
-            type: 'image',
-            src: img.src,
-            alt: img.alt || '',
-            caption: caption ? caption.textContent.trim() : ''
-          });
+        if (img) {
+          var imgSrc = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+          if (imgSrc && !imgSrc.startsWith('data:image/gif')) {
+            results.push({
+              type: 'image',
+              src: imgSrc,
+              alt: img.alt || '',
+              caption: caption ? caption.textContent.trim() : ''
+            });
+          }
         }
         return results;
       }
 
-      // Handle paragraphs
+      // Handle paragraphs - preserve links and extract embedded images
       if (tagName === 'P') {
-        var text = node.textContent.trim();
-        if (text) {
+        // First extract any images within the paragraph
+        var embeddedImages = node.querySelectorAll('img');
+        embeddedImages.forEach(function(img) {
+          var imgSrc = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+          if (imgSrc && !imgSrc.startsWith('data:image/gif')) {
+            results.push({
+              type: 'image',
+              src: imgSrc,
+              alt: img.alt || ''
+            });
+          }
+        });
+
+        var extracted = extractWithLinks(node);
+        if (extracted.text) {
           results.push({
             type: 'paragraph',
-            content: text
+            content: extracted.text,
+            html: extracted.html
           });
         }
         return results;
@@ -306,7 +386,10 @@ var Reader = (function() {
           break;
 
         case 'list':
-          blockText = block.items.join(' ');
+          // Support both old format (string) and new format (object with text/html)
+          blockText = block.items.map(function(item) {
+            return typeof item === 'string' ? item : item.text;
+          }).join(' ');
           blockWords = countWords(blockText);
 
           if (currentChunk.wordCount + blockWords > maxWords && currentChunk.blocks.length > 0) {
@@ -413,18 +496,25 @@ var Reader = (function() {
         return '<' + tag + ' class="readable-heading">' + escapeHtml(block.content) + '</' + tag + '>';
 
       case 'paragraph':
+        // Use preserved HTML if available (contains links), otherwise escape content
+        var paragraphContent = block.html || escapeHtml(block.content);
+        return '<p class="readable-paragraph">' + paragraphContent + '</p>';
+
       case 'text':
         return '<p class="readable-paragraph">' + escapeHtml(block.content) + '</p>';
 
       case 'list':
         var listTag = block.ordered ? 'ol' : 'ul';
         var items = block.items.map(function(item) {
-          return '<li>' + escapeHtml(item) + '</li>';
+          // Support both old format (string) and new format (object with text/html)
+          var itemHtml = typeof item === 'string' ? escapeHtml(item) : item.html;
+          return '<li>' + itemHtml + '</li>';
         }).join('');
         return '<' + listTag + ' class="readable-list">' + items + '</' + listTag + '>';
 
       case 'quote':
-        return '<blockquote class="readable-quote">' + escapeHtml(block.content) + '</blockquote>';
+        var quoteContent = block.html || escapeHtml(block.content);
+        return '<blockquote class="readable-quote">' + quoteContent + '</blockquote>';
 
       case 'code':
         return '<pre class="readable-code"><code>' + escapeHtml(block.content) + '</code></pre>';

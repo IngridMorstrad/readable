@@ -134,6 +134,19 @@ h6.readable-heading { font-size: 16px; }
   margin-bottom: 0;
 }
 
+/* Links */
+.readable-card-content a {
+  color: #818cf8;
+  text-decoration: underline;
+  text-decoration-color: rgba(129, 140, 248, 0.4);
+  transition: color 0.2s, text-decoration-color 0.2s;
+}
+
+.readable-card-content a:hover {
+  color: #a5b4fc;
+  text-decoration-color: rgba(165, 180, 252, 0.6);
+}
+
 .readable-list {
   margin: 16px 0;
   padding-left: 24px;
