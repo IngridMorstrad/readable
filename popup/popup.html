@@ -11,6 +11,8 @@
     <h1>Readable</h1>
     <p class="subtitle">Swipeable Article Reader</p>
 
+    <div id="readingStats" class="reading-stats"></div>
+
     <div class="settings">
       <div class="setting-group">
         <label for="chunkSize">Chunk Size (words)</label>
@@ -29,17 +31,38 @@
       </div>
 
       <div class="setting-group">
-        <label for="apiKey">Gemini API Key (optional)</label>
+        <label for="aiProvider">AI Provider</label>
+        <select id="aiProvider">
+          <option value="gemini">Gemini (Google)</option>
+          <option value="openai">OpenAI (GPT-4o-mini)</option>
+          <option value="claude">Claude (Anthropic)</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <label for="apiKey"><span id="apiKeyLabel">Gemini</span> API Key (optional)</label>
         <input type="password" id="apiKey" placeholder="Enter API key for quiz questions">
         <p class="hint">Required for AI-generated quiz questions</p>
       </div>
     </div>
 
-    <button id="startBtn" class="primary-btn">Start Reading</button>
+    <div class="button-row">
+      <button id="startBtn" class="primary-btn">Start Reading</button>
+      <button id="saveBtn" class="secondary-btn" title="Save for Later">+</button>
+    </div>
+
+    <div id="readLaterSection" class="read-later-section" style="display: none;">
+      <div class="section-header">
+        <span>Reading Queue (<span id="queueCount">0</span>)</span>
+        <button id="clearQueueBtn" class="text-btn">Clear</button>
+      </div>
+      <div id="readLaterList" class="read-later-list"></div>
+    </div>
 
     <div id="status" class="status"></div>
   </div>
 
+  <script src="read-later.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

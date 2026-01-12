@@ -40,7 +40,17 @@ var Swiper = (function() {
           <span class="readable-separator">/</span>
           <span class="readable-total">1</span>
         </div>
-        <button class="readable-close" aria-label="Close">&times;</button>
+        <div class="readable-header-actions">
+          <button class="readable-export" aria-label="Export Flashcards" title="Export to Anki" style="display: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span class="readable-export-count">0</span>
+          </button>
+          <button class="readable-close" aria-label="Close">&times;</button>
+        </div>
       </div>
       <div class="readable-cards-wrapper">
         <div class="readable-cards"></div>
@@ -55,6 +65,16 @@ var Swiper = (function() {
 
     // Add close button handler
     container.querySelector('.readable-close').addEventListener('click', close);
+
+    // Add export button handler
+    var exportBtn = container.querySelector('.readable-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', function() {
+        if (typeof FlashcardExport !== 'undefined') {
+          FlashcardExport.downloadExport('rich');
+        }
+      });
+    }
 
     document.body.appendChild(container);
     document.body.style.overflow = 'hidden';
@@ -456,6 +476,23 @@ var Swiper = (function() {
     return cards.length;
   }
 
+  /**
+   * Update export button visibility and count
+   */
+  function updateExportCount(count) {
+    if (!container) return;
+    var exportBtn = container.querySelector('.readable-export');
+    var countEl = container.querySelector('.readable-export-count');
+    if (exportBtn && countEl) {
+      if (count > 0) {
+        exportBtn.style.display = 'flex';
+        countEl.textContent = count;
+      } else {
+        exportBtn.style.display = 'none';
+      }
+    }
+  }
+
   // Public API
   return {
     init: init,
@@ -466,7 +503,8 @@ var Swiper = (function() {
     prev: prev,
     close: close,
     getCurrentIndex: getCurrentIndex,
-    getTotal: getTotal
+    getTotal: getTotal,
+    updateExportCount: updateExportCount
   };
 })();
 

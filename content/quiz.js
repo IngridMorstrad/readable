@@ -4,16 +4,25 @@
 
 var Quiz = (function() {
   var apiKey = '';
+  var aiProvider = 'gemini';
   var stats = {
     total: 0,
     correct: 0
   };
+  var completedQuizzes = []; // Store quizzes for export
 
   /**
    * Set the API key
    */
   function setApiKey(key) {
     apiKey = key;
+  }
+
+  /**
+   * Set the AI provider
+   */
+  function setProvider(provider) {
+    aiProvider = provider || 'gemini';
   }
 
   /**
@@ -43,6 +52,7 @@ ${textContent.substring(0, 2000)}`;
       var response = await chrome.runtime.sendMessage({
         action: 'generateQuiz',
         apiKey: apiKey,
+        provider: aiProvider,
         prompt: prompt
       });
 
@@ -206,6 +216,11 @@ ${textContent.substring(0, 2000)}`;
         var selected = option.dataset.answer;
         var isCorrect = selected === quiz.correct;
 
+        // Record quiz answer in persistent stats
+        if (typeof ReadingStats !== 'undefined') {
+          ReadingStats.recordQuizAnswer(isCorrect);
+        }
+
         if (isCorrect) {
           stats.correct++;
           option.classList.add('readable-quiz-correct');
@@ -222,6 +237,24 @@ ${textContent.substring(0, 2000)}`;
               opt.classList.add('readable-quiz-correct');
             }
           });
+        }
+
+        // Store quiz for export
+        completedQuizzes.push({
+          question: quiz.question,
+          options: quiz.options,
+          correct: quiz.correct,
+          explanation: quiz.explanation,
+          userAnswer: selected,
+          wasCorrect: isCorrect
+        });
+
+        // Add to flashcard export module
+        if (typeof FlashcardExport !== 'undefined') {
+          FlashcardExport.addFlashcard(quiz);
+          if (typeof Swiper !== 'undefined') {
+            Swiper.updateExportCount(FlashcardExport.getCount());
+          }
         }
 
         // Disable all options
@@ -340,6 +373,7 @@ ${textContent.substring(0, 2000)}`;
   // Public API
   return {
     setApiKey: setApiKey,
+    setProvider: setProvider,
     isEnabled: isEnabled,
     generateQuestion: generateQuestion,
     createLoadingCard: createLoadingCard,

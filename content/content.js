@@ -16,6 +16,7 @@
   };
 
   var chunks = [];
+  var chunkWordCounts = []; // Word count per chunk for stats tracking
   var quizPositions = new Set();
   var preGeneratedQuizzes = new Map(); // Store pre-generated quizzes by CHUNK index (stable)
   var quizGenerationQueue = []; // Queue of quiz contexts to generate
@@ -32,21 +33,46 @@
     generationAborted = false;
 
     try {
-      // Extract article
-      var article = Reader.extractArticle();
-      if (!article) {
-        alert('Could not extract article content from this page.');
-        return;
+      var article;
+      var blocks;
+
+      // Check for Twitter/X thread first
+      if (typeof TwitterParser !== 'undefined' && TwitterParser.isTwitterThread()) {
+        var thread = TwitterParser.extractThread();
+        if (!thread) {
+          alert('Could not extract thread. Make sure you are on a tweet/thread page.');
+          return;
+        }
+        article = {
+          title: thread.title,
+          excerpt: thread.author + ' - ' + thread.tweetCount + ' tweets'
+        };
+        blocks = thread.blocks;
+      } else {
+        // Extract article using Readability
+        article = Reader.extractArticle();
+        if (!article) {
+          alert('Could not extract article content from this page.');
+          return;
+        }
+        blocks = Reader.parseContent(article.content);
       }
 
-      // Parse and chunk content
-      var blocks = Reader.parseContent(article.content);
+      // Chunk content
       chunks = Reader.chunkContent(blocks, settings.chunkSize);
 
       if (chunks.length === 0) {
         alert('No content found to display.');
         return;
       }
+
+      // Calculate word counts per chunk for stats
+      chunkWordCounts = chunks.map(function(chunk) {
+        return chunk.text ? chunk.text.split(/\s+/).filter(Boolean).length : 0;
+      });
+      var totalWords = chunkWordCounts.reduce(function(sum, count) {
+        return sum + count;
+      }, 0);
 
       // Prepare slides
       var slides = chunks.map(function(chunk, index) {
@@ -85,9 +111,21 @@
       // Set initial slides
       Swiper.setSlides(slides);
 
+      // Start stats tracking session
+      if (typeof ReadingStats !== 'undefined') {
+        ReadingStats.startSession(article.title, window.location.href, totalWords);
+      }
+
+      // Initialize flashcard export with article title
+      if (typeof FlashcardExport !== 'undefined') {
+        FlashcardExport.clear();
+        FlashcardExport.setArticleTitle(article.title);
+      }
+
       // Set up quiz if API key provided
       if (settings.apiKey) {
         Quiz.setApiKey(settings.apiKey);
+        Quiz.setProvider(settings.aiProvider);
         Quiz.resetStats();
 
         // Calculate quiz positions and prepare generation queue
@@ -168,6 +206,17 @@
    * Handle slide change
    */
   async function handleSlideChange(index, slide) {
+    // Track reading progress for stats (content slides only, index > 0 skips title)
+    if (typeof ReadingStats !== 'undefined' && slide && slide.type === 'content' && slide.index >= 0) {
+      var chunkIdx = slide.index;
+      // Calculate cumulative words read up to this chunk
+      var wordsRead = 0;
+      for (var i = 0; i <= chunkIdx; i++) {
+        wordsRead += chunkWordCounts[i] || 0;
+      }
+      ReadingStats.updateProgress(chunkIdx + 1, chunks.length, wordsRead);
+    }
+
     // Check if we should insert a quiz after this slide
     if (Quiz.isEnabled() && quizPositions.has(index)) {
       quizPositions.delete(index);
@@ -292,14 +341,25 @@
    * Handle close
    */
   function handleClose() {
+    // End stats session and persist
+    if (typeof ReadingStats !== 'undefined') {
+      ReadingStats.endSession();
+    }
+
     window.__readableInitialized = false;
     generationAborted = true;
     chunks = [];
+    chunkWordCounts = [];
     quizPositions.clear();
     preGeneratedQuizzes.clear();
     chunkToPositionMap.clear();
     quizGenerationQueue = [];
     isGenerating = false;
+
+    // Clear flashcard export
+    if (typeof FlashcardExport !== 'undefined') {
+      FlashcardExport.clear();
+    }
   }
 
   /**
