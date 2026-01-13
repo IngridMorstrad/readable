@@ -10,6 +10,7 @@ var Swiper = (function() {
   var touchStartY = 0;
   var touchStartX = 0;
   var isDragging = false;
+  var dragStarted = false; // Track if drag threshold was exceeded
   var dragOffset = 0;
   var onSlideChange = null;
   var onClose = null;
@@ -314,29 +315,43 @@ var Swiper = (function() {
    * Handle mouse down
    */
   function handleMouseDown(e) {
-    if (e.target.closest('button, input, a, .readable-close')) {
+    if (e.target.closest('button, input, a, textarea, .readable-close')) {
       return;
     }
     touchStartY = e.clientY;
     touchStartX = e.clientX;
-    isDragging = true;
+    isDragging = false; // Don't start dragging immediately
+    dragStarted = false;
     dragOffset = 0;
-    cardsContainer.style.transition = 'none';
-    e.preventDefault();
   }
 
   /**
    * Handle mouse move
    */
   function handleMouseMove(e) {
-    if (!isDragging) return;
+    // Need a starting point
+    if (touchStartY === 0 && touchStartX === 0) return;
 
     var deltaY = e.clientY - touchStartY;
     var deltaX = e.clientX - touchStartX;
 
+    // If horizontal movement is greater, allow text selection
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
       return;
     }
+
+    // Only start dragging after significant vertical movement (10px threshold)
+    if (!dragStarted && Math.abs(deltaY) > 10) {
+      dragStarted = true;
+      isDragging = true;
+      cardsContainer.style.transition = 'none';
+      // Clear any text selection when starting to drag
+      window.getSelection().removeAllRanges();
+    }
+
+    if (!isDragging) return;
+
+    e.preventDefault();
 
     if ((currentIndex === 0 && deltaY > 0) ||
         (currentIndex === cards.length - 1 && deltaY < 0)) {
@@ -353,9 +368,14 @@ var Swiper = (function() {
    * Handle mouse up
    */
   function handleMouseUp() {
-    if (!isDragging) return;
-
+    var wasDragging = isDragging;
     isDragging = false;
+    dragStarted = false;
+    touchStartY = 0;
+    touchStartX = 0;
+
+    if (!wasDragging) return;
+
     var threshold = window.innerHeight * 0.15;
 
     if (dragOffset < -threshold && currentIndex < cards.length - 1) {
