@@ -246,21 +246,81 @@ var SelectionPrompt = (function() {
   }
 
   /**
-   * Position panel near selection
+   * Position panel near selection, ensuring it fits on screen
    */
   function positionPanel(panel, rect) {
     panel.style.left = Math.max(10, rect.left) + 'px';
     panel.style.top = (rect.bottom + 10) + 'px';
 
-    // Will reposition after render if needed
+    // Reposition after render to fit on screen
     requestAnimationFrame(function() {
       var panelRect = panel.getBoundingClientRect();
+      var maxHeight = window.innerHeight - 20;
+
+      // Constrain width
       if (panelRect.right > window.innerWidth - 10) {
         panel.style.left = (window.innerWidth - panelRect.width - 10) + 'px';
       }
-      if (panelRect.bottom > window.innerHeight - 10) {
-        panel.style.top = (rect.top - panelRect.height - 10) + 'px';
+
+      // If panel is taller than viewport, constrain height and position at top
+      if (panelRect.height > maxHeight) {
+        panel.style.maxHeight = maxHeight + 'px';
+        panel.style.top = '10px';
+      } else if (panelRect.bottom > window.innerHeight - 10) {
+        // Try positioning above selection
+        var topPos = rect.top - panelRect.height - 10;
+        if (topPos < 10) {
+          // Not enough room above, position at top of viewport
+          panel.style.top = '10px';
+        } else {
+          panel.style.top = topPos + 'px';
+        }
       }
+
+      // Final bounds check
+      panelRect = panel.getBoundingClientRect();
+      if (panelRect.top < 10) {
+        panel.style.top = '10px';
+      }
+    });
+
+    // Make panel draggable
+    makeDraggable(panel);
+  }
+
+  /**
+   * Make panel draggable by its header
+   */
+  function makeDraggable(panel) {
+    var header = panel.querySelector('.readable-selection-panel-header');
+    if (!header) return;
+
+    header.style.cursor = 'move';
+    var isDragging = false;
+    var startX, startY, startLeft, startTop;
+
+    header.addEventListener('mousedown', function(e) {
+      if (e.target.closest('button')) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = panel.offsetLeft;
+      startTop = panel.offsetTop;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      var newLeft = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, startLeft + dx));
+      var newTop = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, startTop + dy));
+      panel.style.left = newLeft + 'px';
+      panel.style.top = newTop + 'px';
+    });
+
+    document.addEventListener('mouseup', function() {
+      isDragging = false;
     });
   }
 
