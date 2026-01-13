@@ -58,12 +58,14 @@ Turn any article into a TikTok-style swipeable experience with optional AI-power
 
 The free tier is generous and sufficient for normal use.
 
+## Creating the ZIP file
+```
+zip -r readable.zip . -x "node_modules/*" ".git/*" ".beads/*" ".*"
+```
+
 ## Privacy
 
-- No data collection or tracking
-- API key stored locally in your browser
-- Article content sent to Gemini API only if you enable quizzes
-- No analytics, no ads
+See PRIVACY.md
 
 ## Contributing
 
