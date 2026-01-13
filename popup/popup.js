@@ -10,9 +10,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const status = document.getElementById('status');
 
   const providerNames = {
-    gemini: 'Gemini',
-    openai: 'OpenAI',
-    claude: 'Claude'
+    gemini: 'Gemma 3 27B',
+    openai: 'GPT-4o Mini',
+    claude: 'Claude 3 Haiku'
   };
 
   // Load and display reading stats
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Inject content scripts
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['lib/Readability.js', 'content/reader.js', 'content/swiper.js', 'content/quiz.js', 'content/flashcard-export.js', 'content/stats.js', 'content/content.js']
+        files: ['lib/Readability.js', 'content/twitter-parser.js', 'content/key-terms.js', 'content/reader.js', 'content/swiper.js', 'content/quiz.js', 'content/flashcard-export.js', 'content/stats.js', 'content/content.js']
       });
 
       // Inject styles

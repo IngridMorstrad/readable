@@ -74,11 +74,18 @@
         return sum + count;
       }, 0);
 
-      // Prepare slides
+      // Prepare slides with key term highlighting
       var slides = chunks.map(function(chunk, index) {
+        var html = Reader.renderChunk(chunk);
+
+        // Mark key terms if KeyTerms module is available
+        if (typeof KeyTerms !== 'undefined') {
+          html = KeyTerms.markTermsInHtml(html);
+        }
+
         return {
           type: 'content',
-          html: Reader.renderChunk(chunk),
+          html: html,
           text: chunk.text,
           index: index
         };
@@ -111,9 +118,24 @@
       // Set initial slides
       Swiper.setSlides(slides);
 
+      // Configure and initialize key terms (for AI definitions on hover)
+      if (typeof KeyTerms !== 'undefined') {
+        KeyTerms.configure({
+          apiKey: settings.apiKey,
+          provider: settings.aiProvider
+        });
+        // Initialize hover listeners after a short delay to ensure DOM is ready
+        setTimeout(function() {
+          var container = document.querySelector('.readable-overlay');
+          if (container) {
+            KeyTerms.initializeListeners(container);
+          }
+        }, 100);
+      }
+
       // Start stats tracking session
       if (typeof ReadingStats !== 'undefined') {
-        ReadingStats.startSession(article.title, window.location.href, totalWords);
+        ReadingStats.startSession(article.title, window.location.href, chunks.length, totalWords);
       }
 
       // Initialize flashcard export with article title
@@ -209,12 +231,7 @@
     // Track reading progress for stats (content slides only, index > 0 skips title)
     if (typeof ReadingStats !== 'undefined' && slide && slide.type === 'content' && slide.index >= 0) {
       var chunkIdx = slide.index;
-      // Calculate cumulative words read up to this chunk
-      var wordsRead = 0;
-      for (var i = 0; i <= chunkIdx; i++) {
-        wordsRead += chunkWordCounts[i] || 0;
-      }
-      ReadingStats.updateProgress(chunkIdx + 1, chunks.length, wordsRead);
+      ReadingStats.updateChunkProgress(chunkIdx, chunkWordCounts[chunkIdx] || 0);
     }
 
     // Check if we should insert a quiz after this slide
@@ -359,6 +376,12 @@
     // Clear flashcard export
     if (typeof FlashcardExport !== 'undefined') {
       FlashcardExport.clear();
+    }
+
+    // Clear key terms cache
+    if (typeof KeyTerms !== 'undefined') {
+      KeyTerms.clearCache();
+      KeyTerms.hideTooltip();
     }
   }
 

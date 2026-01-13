@@ -38,7 +38,7 @@ async function handleGenerateQuiz(request) {
  * Handle Gemini API call
  */
 async function handleGemini(apiKey, prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: 'POST',
