@@ -15,7 +15,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     claude: 'Claude 3 Haiku'
   };
 
-  // Load and display reading stats
+  // History panel controls - define BEFORE loading stats
+  const historyOverlay = document.getElementById('historyOverlay');
+  const historyPanel = document.getElementById('historyPanel');
+
+  window.openHistoryPanel = function() {
+    loadReadingHistory();
+    historyOverlay.classList.add('open');
+    historyPanel.classList.add('open');
+  };
+
+  function closeHistoryPanel() {
+    historyOverlay.classList.remove('open');
+    historyPanel.classList.remove('open');
+  }
+
+  historyOverlay.addEventListener('click', closeHistoryPanel);
+  document.getElementById('closeHistoryBtn').addEventListener('click', closeHistoryPanel);
+
+  // Clear history button
+  document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
+    if (confirm('Clear all reading history? This cannot be undone.')) {
+      await chrome.storage.local.remove('readable_stats');
+      loadReadingStats();
+      loadReadingHistory();
+    }
+  });
+
+  // Load and display reading stats (after openHistoryPanel is defined)
   loadReadingStats();
 
   // Load and display read later queue
@@ -174,6 +201,7 @@ async function loadReadingStats() {
 
     const wordsFormatted = formatWordCount(stats.totalWords);
 
+    const historyCount = stats.articlesHistory?.length || 0;
     statsContainer.innerHTML = `
       <div class="stats-grid">
         <div class="stat-item">
@@ -193,7 +221,14 @@ async function loadReadingStats() {
           <span class="stat-label">Day Streak</span>
         </div>
       </div>
+      ${historyCount > 0 ? `<button id="viewHistoryBtn" class="stats-history-link">View History (${historyCount})</button>` : ''}
     `;
+
+    // Bind history button if present
+    const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+    if (viewHistoryBtn && window.openHistoryPanel) {
+      viewHistoryBtn.addEventListener('click', window.openHistoryPanel);
+    }
   } catch (e) {
     console.error('Failed to load stats:', e);
     statsContainer.innerHTML = '';
@@ -207,6 +242,91 @@ function formatWordCount(count) {
     return (count / 1000).toFixed(1) + 'K';
   }
   return count.toString();
+}
+
+/**
+ * Load and display reading history in panel
+ */
+async function loadReadingHistory() {
+  const STORAGE_KEY = 'readable_stats';
+  const list = document.getElementById('historyList');
+
+  try {
+    const result = await chrome.storage.local.get([STORAGE_KEY]);
+    const stats = result[STORAGE_KEY];
+    const history = stats?.articlesHistory || [];
+
+    if (history.length === 0) {
+      list.innerHTML = '<div class="history-empty">No reading history yet</div>';
+      return;
+    }
+
+    list.innerHTML = history.map((article, index) => {
+      const date = new Date(article.date).toLocaleDateString();
+      const words = formatWordCount(article.words || 0);
+      const completed = article.completed ? '<span class="history-badge">Completed</span>' : '';
+      return `
+        <div class="history-item" data-index="${index}">
+          <div class="history-item-info">
+            <span class="history-title">${escapeHtml(article.title)}</span>
+            <span class="history-meta">${date} · ${words} words ${completed}</span>
+          </div>
+          <button class="history-remove" data-index="${index}" title="Remove">&times;</button>
+        </div>
+      `;
+    }).join('');
+
+    // Add delete handlers
+    list.querySelectorAll('.history-remove').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const index = parseInt(btn.dataset.index);
+        await deleteArticleFromHistory(index);
+      });
+    });
+
+    // Click to open article
+    list.querySelectorAll('.history-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('history-remove')) return;
+        const index = parseInt(item.dataset.index);
+        const article = history[index];
+        if (article?.url) {
+          chrome.tabs.create({ url: article.url });
+        }
+      });
+    });
+  } catch (e) {
+    console.error('Failed to load history:', e);
+    list.innerHTML = '<div class="history-empty">Failed to load history</div>';
+  }
+}
+
+/**
+ * Delete article from history and refresh display
+ */
+async function deleteArticleFromHistory(index) {
+  const STORAGE_KEY = 'readable_stats';
+  const result = await chrome.storage.local.get([STORAGE_KEY]);
+  const stats = result[STORAGE_KEY];
+  if (!stats || index < 0 || index >= stats.articlesHistory.length) return;
+
+  const article = stats.articlesHistory[index];
+
+  // Subtract from totals
+  stats.totalArticles = Math.max(0, stats.totalArticles - 1);
+  stats.totalWords = Math.max(0, stats.totalWords - (article.words || 0));
+  stats.totalQuizzes = Math.max(0, stats.totalQuizzes - (article.quizzesTaken || 0));
+  stats.correctAnswers = Math.max(0, stats.correctAnswers - (article.correctAnswers || 0));
+
+  // Remove from history
+  stats.articlesHistory.splice(index, 1);
+
+  await chrome.storage.local.set({ [STORAGE_KEY]: stats });
+
+  // Refresh displays
+  loadReadingStats();
+  loadReadingHistory();
 }
 
 /**

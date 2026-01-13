@@ -211,6 +211,28 @@ var Stats = (function() {
     await saveStats(getDefaultStats());
   }
 
+  /**
+   * Delete an article from history and recalculate totals
+   */
+  async function deleteArticle(index) {
+    var stats = await loadStats();
+    if (index < 0 || index >= stats.articlesHistory.length) return false;
+
+    var article = stats.articlesHistory[index];
+
+    // Subtract this article's contribution from totals
+    stats.totalArticles = Math.max(0, stats.totalArticles - 1);
+    stats.totalWords = Math.max(0, stats.totalWords - (article.words || 0));
+    stats.totalQuizzes = Math.max(0, stats.totalQuizzes - (article.quizzesTaken || 0));
+    stats.correctAnswers = Math.max(0, stats.correctAnswers - (article.correctAnswers || 0));
+
+    // Remove from history
+    stats.articlesHistory.splice(index, 1);
+
+    await saveStats(stats);
+    return true;
+  }
+
   // Public API
   return {
     startSession: startSession,
@@ -222,7 +244,8 @@ var Stats = (function() {
     getSummary: getSummary,
     getCompletionPercent: getCompletionPercent,
     formatWordCount: formatWordCount,
-    resetStats: resetStats
+    resetStats: resetStats,
+    deleteArticle: deleteArticle
   };
 })();
 
