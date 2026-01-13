@@ -49,15 +49,19 @@ Text:
 ${textContent.substring(0, 2000)}`;
 
     try {
-      var response = await chrome.runtime.sendMessage({
+      var response = await Utils.sendMessage({
         action: 'generateQuiz',
         apiKey: apiKey,
         provider: aiProvider,
         prompt: prompt
       });
 
-      if (response.error) {
+      if (response && response.error) {
         throw new Error(response.error);
+      }
+
+      if (!response || !response.text) {
+        throw new Error('No response from AI provider');
       }
 
       // Parse the response

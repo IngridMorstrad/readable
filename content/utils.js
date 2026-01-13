@@ -24,9 +24,26 @@ var Utils = (function() {
     return count.toString();
   }
 
+  /**
+   * Send message to background with retry (handles service worker wake-up)
+   */
+  async function sendMessage(message, retries) {
+    retries = typeof retries === 'number' ? retries : 1;
+    try {
+      return await chrome.runtime.sendMessage(message);
+    } catch (error) {
+      if (retries > 0 && error.message && error.message.includes('Receiving end does not exist')) {
+        await new Promise(function(r) { setTimeout(r, 100); });
+        return sendMessage(message, retries - 1);
+      }
+      throw error;
+    }
+  }
+
   return {
     escapeHtml: escapeHtml,
-    formatWordCount: formatWordCount
+    formatWordCount: formatWordCount,
+    sendMessage: sendMessage
   };
 })();
 

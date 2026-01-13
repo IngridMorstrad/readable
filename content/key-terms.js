@@ -221,20 +221,20 @@ var KeyTerms = (function() {
       'Return ONLY the definition, no prefix like "Definition:" or quotes.';
 
     try {
-      var response = await chrome.runtime.sendMessage({
+      var response = await Utils.sendMessage({
         action: 'generateQuiz',
         apiKey: apiKey,
         provider: aiProvider,
         prompt: prompt
       });
 
-      if (response.error) {
+      if (response && response.error) {
         throw new Error(response.error);
       }
 
       return {
         term: term,
-        definition: response.text.trim(),
+        definition: response && response.text ? response.text.trim() : 'No definition returned',
         source: 'ai'
       };
     } catch (error) {

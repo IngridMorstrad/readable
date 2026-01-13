@@ -192,18 +192,18 @@ var SelectionPrompt = (function() {
     showResponse('Thinking...', false, true);
 
     try {
-      var response = await chrome.runtime.sendMessage({
+      var response = await Utils.sendMessage({
         action: 'generateQuiz',
         apiKey: apiKey,
         provider: aiProvider,
         prompt: prompt
       });
 
-      if (response.error) {
+      if (response && response.error) {
         throw new Error(response.error);
       }
 
-      showResponse(response.text);
+      showResponse(response && response.text ? response.text : 'No response');
     } catch (error) {
       showResponse('Error: ' + error.message, true);
     }

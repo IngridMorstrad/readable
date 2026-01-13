@@ -14,6 +14,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 /**
+ * Fetch with retry for transient errors (503, 502, 429)
+ */
+async function fetchWithRetry(url, options, retries = 2, delay = 1000) {
+  for (let i = 0; i <= retries; i++) {
+    const response = await fetch(url, options);
+
+    if (response.ok) return response;
+
+    // Retry on transient errors
+    if ([502, 503, 429].includes(response.status) && i < retries) {
+      console.log(`Retrying request (${i + 1}/${retries}) after ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2; // Exponential backoff
+      continue;
+    }
+
+    return response; // Return failed response for error handling
+  }
+}
+
+/**
  * Handle API error responses consistently across providers
  */
 async function handleApiError(response, provider) {
@@ -29,6 +50,8 @@ async function handleApiError(response, provider) {
     throw new Error(`Model not found. Try a different ${provider} model.`);
   } else if (status === 400) {
     throw new Error(`Bad request. Please check your ${provider} API configuration.`);
+  } else if (status === 503) {
+    throw new Error(`Service temporarily unavailable. Please try again.`);
   } else {
     throw new Error(`${provider} API error: ${status}`);
   }
@@ -61,7 +84,7 @@ async function handleGenerateQuiz(request) {
 async function handleGemini(apiKey, prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=${apiKey}`;
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -83,7 +106,7 @@ async function handleGemini(apiKey, prompt) {
  * Handle OpenAI API call
  */
 async function handleOpenAI(apiKey, prompt) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -110,7 +133,7 @@ async function handleOpenAI(apiKey, prompt) {
  * Handle Claude/Anthropic API call
  */
 async function handleClaude(apiKey, prompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
