@@ -12,6 +12,7 @@ var Swiper = (function() {
   var isDragging = false;
   var dragStarted = false; // Track if drag threshold was exceeded
   var dragOffset = 0;
+  var selectionAtStart = ''; // Track selection when drag started
   var onSlideChange = null;
   var onClose = null;
 
@@ -323,6 +324,9 @@ var Swiper = (function() {
     isDragging = false; // Don't start dragging immediately
     dragStarted = false;
     dragOffset = 0;
+    // Capture selection at start to detect if user is selecting text
+    var sel = window.getSelection();
+    selectionAtStart = sel ? sel.toString() : '';
   }
 
   /**
@@ -341,12 +345,19 @@ var Swiper = (function() {
     }
 
     // Only start dragging after significant vertical movement (10px threshold)
+    // But not if user is actively selecting text (selection grew since mousedown)
     if (!dragStarted && Math.abs(deltaY) > 10) {
+      var selection = window.getSelection();
+      var currentSelection = selection ? selection.toString() : '';
+      if (currentSelection !== selectionAtStart) {
+        // Selection changed, user is selecting text - don't swipe
+        touchStartY = 0;
+        touchStartX = 0;
+        return;
+      }
       dragStarted = true;
       isDragging = true;
       cardsContainer.style.transition = 'none';
-      // Clear any text selection when starting to drag
-      window.getSelection().removeAllRanges();
     }
 
     if (!isDragging) return;
