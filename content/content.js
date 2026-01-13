@@ -124,14 +124,28 @@
           apiKey: settings.apiKey,
           provider: settings.aiProvider
         });
-        // Initialize hover listeners after a short delay to ensure DOM is ready
-        setTimeout(function() {
-          var container = document.querySelector('.readable-overlay');
-          if (container) {
+      }
+
+      // Configure selection prompt (for text selection → LLM)
+      if (typeof SelectionPrompt !== 'undefined') {
+        SelectionPrompt.configure({
+          apiKey: settings.apiKey,
+          provider: settings.aiProvider
+        });
+      }
+
+      // Initialize listeners after DOM is ready
+      setTimeout(function() {
+        var container = document.querySelector('.readable-overlay');
+        if (container) {
+          if (typeof KeyTerms !== 'undefined') {
             KeyTerms.initializeListeners(container);
           }
-        }, 100);
-      }
+          if (typeof SelectionPrompt !== 'undefined') {
+            SelectionPrompt.initializeListeners(container);
+          }
+        }
+      }, 100);
 
       // Start stats tracking session
       if (typeof ReadingStats !== 'undefined') {
@@ -382,6 +396,12 @@
     if (typeof KeyTerms !== 'undefined') {
       KeyTerms.clearCache();
       KeyTerms.hideTooltip();
+    }
+
+    // Clear selection prompt UI
+    if (typeof SelectionPrompt !== 'undefined') {
+      SelectionPrompt.hideMenu();
+      SelectionPrompt.hidePanel();
     }
   }
 

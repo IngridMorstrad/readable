@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Inject content scripts
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['lib/Readability.js', 'content/utils.js', 'content/twitter-parser.js', 'content/key-terms.js', 'content/reader.js', 'content/swiper.js', 'content/quiz.js', 'content/flashcard-export.js', 'content/stats.js', 'content/content.js']
+        files: ['lib/Readability.js', 'content/utils.js', 'content/twitter-parser.js', 'content/key-terms.js', 'content/selection-prompt.js', 'content/reader.js', 'content/swiper.js', 'content/quiz.js', 'content/flashcard-export.js', 'content/stats.js', 'content/content.js']
       });
 
       // Inject styles

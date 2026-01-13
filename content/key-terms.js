@@ -7,6 +7,7 @@ var KeyTerms = (function() {
   var aiProvider = 'gemini';
   var apiKey = '';
   var pendingDefinitions = new Map(); // Track in-flight requests
+  var tooltipSticky = false; // Whether tooltip should stay open
 
   // Common words to exclude from key term detection
   var commonWords = new Set([
@@ -253,7 +254,7 @@ var KeyTerms = (function() {
     var term = termElement.dataset.term || termElement.textContent;
 
     // Remove any existing tooltip
-    hideTooltip();
+    hideTooltip(true);
 
     // Create tooltip
     var tooltip = document.createElement('div');
@@ -273,26 +274,94 @@ var KeyTerms = (function() {
     // Fetch definition
     getDefinition(term).then(function(result) {
       if (tooltip.parentNode) {
-        tooltip.innerHTML =
-          '<div class="readable-tooltip-term">' + escapeHtml(result.term) + '</div>' +
-          '<div class="readable-tooltip-definition">' + escapeHtml(result.definition) + '</div>';
-
-        // Reposition if needed (check if off-screen)
-        var tooltipRect = tooltip.getBoundingClientRect();
-        if (tooltipRect.right > window.innerWidth) {
-          tooltip.style.left = (window.innerWidth - tooltipRect.width - 10) + 'px';
-        }
-        if (tooltipRect.bottom > window.innerHeight) {
-          tooltip.style.top = (rect.top - tooltipRect.height - 8) + 'px';
-        }
+        renderTooltipContent(tooltip, result, rect);
       }
     });
   }
 
   /**
+   * Render tooltip content with definition and save button
+   */
+  function renderTooltipContent(tooltip, result, rect) {
+    tooltip.innerHTML =
+      '<div class="readable-tooltip-term">' + escapeHtml(result.term) + '</div>' +
+      '<div class="readable-tooltip-definition">' + escapeHtml(result.definition) + '</div>' +
+      '<button class="readable-tooltip-save">Save to Anki</button>';
+
+    // Bind save button
+    var saveBtn = tooltip.querySelector('.readable-tooltip-save');
+    saveBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      enterEditMode(tooltip, result.term, result.definition);
+    });
+
+    repositionTooltip(tooltip, rect);
+  }
+
+  /**
+   * Enter edit mode for term/definition
+   */
+  function enterEditMode(tooltip, term, definition) {
+    tooltipSticky = true;
+    tooltip.classList.add('readable-tooltip-editing');
+
+    tooltip.innerHTML =
+      '<div class="readable-tooltip-edit-field">' +
+        '<label>Term</label>' +
+        '<input type="text" class="readable-tooltip-term-input" value="' + escapeHtml(term) + '">' +
+      '</div>' +
+      '<div class="readable-tooltip-edit-field">' +
+        '<label>Definition</label>' +
+        '<textarea class="readable-tooltip-def-input">' + escapeHtml(definition) + '</textarea>' +
+      '</div>' +
+      '<div class="readable-tooltip-buttons">' +
+        '<button class="readable-tooltip-cancel">Cancel</button>' +
+        '<button class="readable-tooltip-confirm">Add to Anki</button>' +
+      '</div>';
+
+    // Focus term input
+    tooltip.querySelector('.readable-tooltip-term-input').focus();
+
+    // Bind buttons
+    tooltip.querySelector('.readable-tooltip-cancel').addEventListener('click', function() {
+      hideTooltip(true);
+    });
+
+    tooltip.querySelector('.readable-tooltip-confirm').addEventListener('click', function() {
+      var termInput = tooltip.querySelector('.readable-tooltip-term-input').value.trim();
+      var defInput = tooltip.querySelector('.readable-tooltip-def-input').value.trim();
+
+      if (termInput && defInput) {
+        if (typeof FlashcardExport !== 'undefined') {
+          FlashcardExport.addTermCard(termInput, defInput);
+          if (typeof Swiper !== 'undefined') {
+            Swiper.updateExportCount(FlashcardExport.getCount());
+          }
+        }
+        hideTooltip(true);
+      }
+    });
+  }
+
+  /**
+   * Reposition tooltip if off-screen
+   */
+  function repositionTooltip(tooltip, rect) {
+    var tooltipRect = tooltip.getBoundingClientRect();
+    if (tooltipRect.right > window.innerWidth) {
+      tooltip.style.left = (window.innerWidth - tooltipRect.width - 10) + 'px';
+    }
+    if (tooltipRect.bottom > window.innerHeight) {
+      tooltip.style.top = (rect.top - tooltipRect.height - 8) + 'px';
+    }
+  }
+
+  /**
    * Hide tooltip
    */
-  function hideTooltip() {
+  function hideTooltip(force) {
+    if (!force && tooltipSticky) return;
+    tooltipSticky = false;
     var existing = document.querySelector('.readable-term-tooltip');
     if (existing) {
       existing.remove();
@@ -314,6 +383,13 @@ var KeyTerms = (function() {
         hideTooltip();
       }
     }, true);
+
+    // Close tooltip when clicking outside
+    document.addEventListener('click', function(e) {
+      if (tooltipSticky && !e.target.closest('.readable-term-tooltip')) {
+        hideTooltip(true);
+      }
+    });
   }
 
   // Use shared utility

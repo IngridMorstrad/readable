@@ -28,10 +28,23 @@ var FlashcardExport = (function() {
     correctAnswer = correctAnswer.replace(/^[A-D]\.\s*/, '');
 
     flashcards.push({
+      type: 'quiz',
       question: quiz.question,
       answer: correctAnswer,
       explanation: quiz.explanation || '',
-      options: quiz.options.slice() // Copy for reference
+      options: quiz.options.slice()
+    });
+  }
+
+  /**
+   * Add a term/definition flashcard (from key terms)
+   */
+  function addTermCard(term, definition) {
+    if (!term || !definition) return;
+    flashcards.push({
+      type: 'term',
+      question: term,
+      answer: definition
     });
   }
 
@@ -85,10 +98,18 @@ var FlashcardExport = (function() {
     }
 
     var lines = flashcards.map(function(card) {
-      var front = card.question + '<br><br>' + card.options.join('<br>');
-      var back = '<b>' + card.answer + '</b>';
-      if (card.explanation) {
-        back += '<br><br><i>' + card.explanation + '</i>';
+      var front, back;
+      if (card.type === 'term') {
+        // Term card: simple term → definition
+        front = '<b>' + card.question + '</b>';
+        back = card.answer;
+      } else {
+        // Quiz card: question with options
+        front = card.question + '<br><br>' + (card.options || []).join('<br>');
+        back = '<b>' + card.answer + '</b>';
+        if (card.explanation) {
+          back += '<br><br><i>' + card.explanation + '</i>';
+        }
       }
       front = front.replace(/\t/g, ' ');
       back = back.replace(/\t/g, ' ');
@@ -147,6 +168,7 @@ var FlashcardExport = (function() {
   return {
     setArticleTitle: setArticleTitle,
     addFlashcard: addFlashcard,
+    addTermCard: addTermCard,
     getCount: getCount,
     clear: clear,
     exportToAnkiText: exportToAnkiText,
