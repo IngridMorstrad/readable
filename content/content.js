@@ -385,14 +385,8 @@
     }
   }
 
-  /**
-   * Escape HTML
-   */
-  function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // Use shared utility
+  var escapeHtml = Utils.escapeHtml;
 
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {

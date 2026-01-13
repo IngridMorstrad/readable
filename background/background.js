@@ -14,6 +14,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 /**
+ * Handle API error responses consistently across providers
+ */
+async function handleApiError(response, provider) {
+  const errorText = await response.text();
+  console.error(`${provider} API Error:`, errorText);
+
+  const status = response.status;
+  if (status === 401 || status === 403) {
+    throw new Error(`Invalid API key. Please check your ${provider} API key.`);
+  } else if (status === 429) {
+    throw new Error('Rate limit exceeded. Please try again later.');
+  } else if (status === 404) {
+    throw new Error(`Model not found. Try a different ${provider} model.`);
+  } else if (status === 400) {
+    throw new Error(`Bad request. Please check your ${provider} API configuration.`);
+  } else {
+    throw new Error(`${provider} API error: ${status}`);
+  }
+}
+
+/**
  * Handle quiz generation API call with multiple provider support
  */
 async function handleGenerateQuiz(request) {
@@ -42,46 +63,19 @@ async function handleGemini(apiKey, prompt) {
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 500
-      }
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
     })
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Gemini API Error:', errorText);
-
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Invalid API key. Please check your Gemini API key.');
-    } else if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    } else if (response.status === 404) {
-      throw new Error('Model not found. Try a different Gemini model.');
-    } else {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-  }
+  if (!response.ok) await handleApiError(response, 'Gemini');
 
   const data = await response.json();
-
-  if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-    const text = data.candidates[0].content.parts
-      .map(part => part.text)
-      .join('');
-    return { text };
+  if (data.candidates?.[0]?.content) {
+    return { text: data.candidates[0].content.parts.map(p => p.text).join('') };
   }
-
   throw new Error('Unexpected Gemini response format');
 }
 
@@ -89,9 +83,7 @@ async function handleGemini(apiKey, prompt) {
  * Handle OpenAI API call
  */
 async function handleOpenAI(apiKey, prompt) {
-  const url = 'https://api.openai.com/v1/chat/completions';
-
-  const response = await fetch(url, {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -99,38 +91,18 @@ async function handleOpenAI(apiKey, prompt) {
     },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 500
     })
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI API Error:', errorText);
-
-    if (response.status === 401) {
-      throw new Error('Invalid API key. Please check your OpenAI API key.');
-    } else if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    } else if (response.status === 404) {
-      throw new Error('Model not found. Please check your OpenAI API access.');
-    } else {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-  }
+  if (!response.ok) await handleApiError(response, 'OpenAI');
 
   const data = await response.json();
-
-  if (data.choices && data.choices[0] && data.choices[0].message) {
+  if (data.choices?.[0]?.message) {
     return { text: data.choices[0].message.content };
   }
-
   throw new Error('Unexpected OpenAI response format');
 }
 
@@ -138,9 +110,7 @@ async function handleOpenAI(apiKey, prompt) {
  * Handle Claude/Anthropic API call
  */
 async function handleClaude(apiKey, prompt) {
-  const url = 'https://api.anthropic.com/v1/messages';
-
-  const response = await fetch(url, {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -151,35 +121,15 @@ async function handleClaude(apiKey, prompt) {
     body: JSON.stringify({
       model: 'claude-3-haiku-20240307',
       max_tokens: 500,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
+      messages: [{ role: 'user', content: prompt }]
     })
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Claude API Error:', errorText);
-
-    if (response.status === 401) {
-      throw new Error('Invalid API key. Please check your Claude API key.');
-    } else if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    } else if (response.status === 400) {
-      throw new Error('Bad request. Please check your Claude API configuration.');
-    } else {
-      throw new Error(`Claude API error: ${response.status}`);
-    }
-  }
+  if (!response.ok) await handleApiError(response, 'Claude');
 
   const data = await response.json();
-
-  if (data.content && data.content[0] && data.content[0].text) {
+  if (data.content?.[0]?.text) {
     return { text: data.content[0].text };
   }
-
   throw new Error('Unexpected Claude response format');
 }

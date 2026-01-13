@@ -201,17 +201,8 @@ var Stats = (function() {
     };
   }
 
-  /**
-   * Format word count for display
-   */
-  function formatWordCount(count) {
-    if (count >= 1000000) {
-      return (count / 1000000).toFixed(1) + 'M';
-    } else if (count >= 1000) {
-      return (count / 1000).toFixed(1) + 'K';
-    }
-    return count.toString();
-  }
+  // Use shared utility
+  var formatWordCount = Utils.formatWordCount;
 
   /**
    * Reset all stats

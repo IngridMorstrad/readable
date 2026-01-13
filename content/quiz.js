@@ -298,14 +298,8 @@ ${textContent.substring(0, 2000)}`;
     stats.correct = 0;
   }
 
-  /**
-   * Escape HTML special characters
-   */
-  function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // Use shared utility
+  var escapeHtml = Utils.escapeHtml;
 
   /**
    * Update a loading card with actual quiz content

@@ -543,14 +543,8 @@ var Reader = (function() {
     return chunk.blocks.map(renderBlock).join('');
   }
 
-  /**
-   * Escape HTML special characters
-   */
-  function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // Use shared utility
+  var escapeHtml = Utils.escapeHtml;
 
   // Public API
   return {
