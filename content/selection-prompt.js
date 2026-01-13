@@ -189,7 +189,7 @@ var SelectionPrompt = (function() {
       return;
     }
 
-    showResponse('<div class="readable-selection-loading">Thinking...</div>');
+    showResponse('Thinking...', false, true);
 
     try {
       var response = await chrome.runtime.sendMessage({
@@ -212,7 +212,7 @@ var SelectionPrompt = (function() {
   /**
    * Show response panel
    */
-  function showResponse(content, isError) {
+  function showResponse(content, isError, isLoading) {
     hidePanel();
 
     var selection = window.getSelection();
@@ -228,7 +228,8 @@ var SelectionPrompt = (function() {
     responsePanel = document.createElement('div');
     responsePanel.className = 'readable-selection-panel';
 
-    var contentClass = isError ? 'readable-selection-error' : 'readable-selection-response';
+    var contentClass = isLoading ? 'readable-selection-loading' :
+                       isError ? 'readable-selection-error' : 'readable-selection-response';
 
     responsePanel.innerHTML =
       '<div class="readable-selection-panel-header">' +
