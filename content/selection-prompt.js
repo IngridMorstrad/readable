@@ -6,8 +6,9 @@ var SelectionPrompt = (function() {
   var apiKey = '';
   var aiProvider = 'gemini';
   var menu = null;
-  var responsePanel = null;
+  var responsePanels = [];  // Stack of panels for recursive selection
   var currentSelection = '';
+  var baseZIndex = 2147483600;  // Leave room for stacking
 
   /**
    * Configure the module
@@ -29,8 +30,8 @@ var SelectionPrompt = (function() {
    * Handle mouseup to check for text selection
    */
   function handleMouseUp(e) {
-    // Ignore if clicking on menu/panel
-    if (e.target.closest('.readable-selection-menu, .readable-selection-panel')) {
+    // Ignore if clicking on menu buttons
+    if (e.target.closest('.readable-selection-menu')) {
       return;
     }
 
@@ -44,12 +45,16 @@ var SelectionPrompt = (function() {
   }
 
   /**
-   * Handle document mousedown to close menu
+   * Handle document mousedown to close menu/panels
    */
   function handleDocumentMouseDown(e) {
-    if (!e.target.closest('.readable-selection-menu, .readable-selection-panel')) {
+    // Always hide menu when clicking outside it
+    if (!e.target.closest('.readable-selection-menu')) {
       hideMenu();
-      hidePanel();
+    }
+    // Only close panels when clicking completely outside all panels
+    if (!e.target.closest('.readable-selection-menu, .readable-selection-panel')) {
+      hideAllPanels();
     }
   }
 
@@ -70,9 +75,10 @@ var SelectionPrompt = (function() {
       '<button data-prompt="why">Why?</button>' +
       '<button data-prompt="custom">Custom</button>';
 
-    // Position menu above selection
+    // Position menu above selection with highest z-index
     menu.style.left = rect.left + 'px';
     menu.style.top = (rect.top - 45) + 'px';
+    menu.style.zIndex = baseZIndex + 100 + responsePanels.length;
 
     document.body.appendChild(menu);
 
@@ -133,15 +139,14 @@ var SelectionPrompt = (function() {
    */
   function showCustomPromptInput() {
     hideMenu();
-    hidePanel();
 
     var selection = window.getSelection();
     var range = selection.getRangeAt(0);
     var rect = range.getBoundingClientRect();
 
-    responsePanel = document.createElement('div');
-    responsePanel.className = 'readable-selection-panel';
-    responsePanel.innerHTML =
+    var panel = document.createElement('div');
+    panel.className = 'readable-selection-panel';
+    panel.innerHTML =
       '<div class="readable-selection-panel-header">' +
         '<span>Custom Prompt</span>' +
         '<button class="readable-selection-close">&times;</button>' +
@@ -151,22 +156,28 @@ var SelectionPrompt = (function() {
         '<button class="readable-selection-send">Send</button>' +
       '</div>';
 
-    positionPanel(responsePanel, rect);
-    document.body.appendChild(responsePanel);
+    // Set z-index based on stack depth
+    panel.style.zIndex = baseZIndex + responsePanels.length;
+
+    positionPanel(panel, rect);
+    document.body.appendChild(panel);
+    responsePanels.push(panel);
 
     // Focus textarea
-    var textarea = responsePanel.querySelector('textarea');
+    var textarea = panel.querySelector('textarea');
     textarea.focus();
 
-    // Bind close button
-    responsePanel.querySelector('.readable-selection-close').addEventListener('click', hidePanel);
+    // Bind close button to remove this specific panel
+    panel.querySelector('.readable-selection-close').addEventListener('click', function() {
+      removePanel(panel);
+    });
 
     // Bind send button
-    responsePanel.querySelector('.readable-selection-send').addEventListener('click', function() {
+    panel.querySelector('.readable-selection-send').addEventListener('click', function() {
       var customPrompt = textarea.value.trim();
       if (customPrompt) {
         var fullPrompt = customPrompt + '\n\nContext:\n"' + currentSelection + '"';
-        hidePanel();
+        removePanel(panel);
         sendToLLM(fullPrompt);
       }
     });
@@ -175,7 +186,7 @@ var SelectionPrompt = (function() {
     textarea.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        responsePanel.querySelector('.readable-selection-send').click();
+        panel.querySelector('.readable-selection-send').click();
       }
     });
   }
@@ -213,8 +224,6 @@ var SelectionPrompt = (function() {
    * Show response panel
    */
   function showResponse(content, isError, isLoading) {
-    hidePanel();
-
     var selection = window.getSelection();
     var rect;
     try {
@@ -225,34 +234,61 @@ var SelectionPrompt = (function() {
       rect = { left: window.innerWidth / 2 - 150, top: window.innerHeight / 2, bottom: window.innerHeight / 2 };
     }
 
-    responsePanel = document.createElement('div');
-    responsePanel.className = 'readable-selection-panel';
+    var panel = document.createElement('div');
+    panel.className = 'readable-selection-panel';
 
     var contentClass = isLoading ? 'readable-selection-loading' :
                        isError ? 'readable-selection-error' : 'readable-selection-response';
 
     var displayContent = isLoading || isError ? escapeHtml(content) : Utils.renderMarkdown(content);
 
-    responsePanel.innerHTML =
+    // Add depth indicator for nested panels
+    var depthLabel = responsePanels.length > 0 ? ' (Level ' + (responsePanels.length + 1) + ')' : '';
+
+    panel.innerHTML =
       '<div class="readable-selection-panel-header">' +
-        '<span>Response</span>' +
+        '<span>Response' + depthLabel + '</span>' +
         '<button class="readable-selection-close">&times;</button>' +
       '</div>' +
       '<div class="' + contentClass + '">' + displayContent + '</div>';
 
-    positionPanel(responsePanel, rect);
-    document.body.appendChild(responsePanel);
+    // Set z-index based on stack depth
+    panel.style.zIndex = baseZIndex + responsePanels.length;
 
-    // Bind close button
-    responsePanel.querySelector('.readable-selection-close').addEventListener('click', hidePanel);
+    // Add visual distinction for nested panels
+    if (responsePanels.length > 0) {
+      panel.classList.add('readable-selection-panel-nested');
+      panel.dataset.depth = responsePanels.length;
+    }
+
+    positionPanel(panel, rect, responsePanels.length);
+    document.body.appendChild(panel);
+    responsePanels.push(panel);
+
+    // Bind close button to remove this specific panel
+    panel.querySelector('.readable-selection-close').addEventListener('click', function() {
+      removePanel(panel);
+    });
+
+    // Enable recursive selection on non-loading response content
+    if (!isLoading && !isError) {
+      var responseContent = panel.querySelector('.readable-selection-response');
+      if (responseContent) {
+        responseContent.addEventListener('mouseup', handleMouseUp);
+      }
+    }
   }
 
   /**
    * Position panel near selection, ensuring it fits on screen
    */
-  function positionPanel(panel, rect) {
-    panel.style.left = Math.max(10, rect.left) + 'px';
-    panel.style.top = (rect.bottom + 10) + 'px';
+  function positionPanel(panel, rect, depth) {
+    depth = depth || 0;
+    // Offset nested panels to cascade visually
+    var offset = depth * 20;
+
+    panel.style.left = Math.max(10, rect.left + offset) + 'px';
+    panel.style.top = (rect.bottom + 10 + offset) + 'px';
 
     // Reposition after render to fit on screen
     requestAnimationFrame(function() {
@@ -267,13 +303,13 @@ var SelectionPrompt = (function() {
       // If panel is taller than viewport, constrain height and position at top
       if (panelRect.height > maxHeight) {
         panel.style.maxHeight = maxHeight + 'px';
-        panel.style.top = '10px';
+        panel.style.top = (10 + offset) + 'px';
       } else if (panelRect.bottom > window.innerHeight - 10) {
         // Try positioning above selection
         var topPos = rect.top - panelRect.height - 10;
         if (topPos < 10) {
           // Not enough room above, position at top of viewport
-          panel.style.top = '10px';
+          panel.style.top = (10 + offset) + 'px';
         } else {
           panel.style.top = topPos + 'px';
         }
@@ -282,7 +318,7 @@ var SelectionPrompt = (function() {
       // Final bounds check
       panelRect = panel.getBoundingClientRect();
       if (panelRect.top < 10) {
-        panel.style.top = '10px';
+        panel.style.top = (10 + offset) + 'px';
       }
     });
 
@@ -327,12 +363,33 @@ var SelectionPrompt = (function() {
   }
 
   /**
-   * Hide response panel
+   * Remove a specific panel from the stack
+   */
+  function removePanel(panel) {
+    var index = responsePanels.indexOf(panel);
+    if (index !== -1) {
+      panel.remove();
+      responsePanels.splice(index, 1);
+    }
+  }
+
+  /**
+   * Hide all response panels
+   */
+  function hideAllPanels() {
+    responsePanels.forEach(function(panel) {
+      panel.remove();
+    });
+    responsePanels = [];
+  }
+
+  /**
+   * Hide top panel only (for backwards compatibility)
    */
   function hidePanel() {
-    if (responsePanel) {
-      responsePanel.remove();
-      responsePanel = null;
+    if (responsePanels.length > 0) {
+      var panel = responsePanels.pop();
+      panel.remove();
     }
   }
 
@@ -344,7 +401,8 @@ var SelectionPrompt = (function() {
     configure: configure,
     initializeListeners: initializeListeners,
     hideMenu: hideMenu,
-    hidePanel: hidePanel
+    hidePanel: hidePanel,
+    hideAllPanels: hideAllPanels
   };
 })();
 
