@@ -408,6 +408,12 @@ var Swiper = (function() {
       return;
     }
 
+    // Don't intercept keys when user is typing in an input field
+    var target = e.target;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
     switch (e.key) {
       case 'ArrowUp':
       case 'k':
