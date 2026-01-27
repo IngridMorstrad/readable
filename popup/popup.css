@@ -454,6 +454,12 @@ input[type="password"]::placeholder {
   cursor: not-allowed;
 }
 
+.text-secondary-btn {
+  font-family: 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
 /* Read Later Section */
 .read-later-section {
   margin-top: 20px;

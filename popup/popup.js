@@ -119,6 +119,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Summarize button
+  const summarizeBtn = document.getElementById('summarizeBtn');
+  summarizeBtn.addEventListener('click', async () => {
+    // Require API key for summarization
+    if (!apiKeyInput.value) {
+      showStatus('API key required for summary', 'error');
+      return;
+    }
+
+    summarizeBtn.disabled = true;
+    status.className = 'status';
+    status.style.display = 'none';
+
+    try {
+      await saveSettings();
+
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) throw new Error('No active tab found');
+
+      // Inject content scripts
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['lib/Readability.js', 'content/utils.js', 'content/twitter-parser.js', 'content/reader.js', 'content/summarize.js']
+      });
+
+      // Inject styles
+      await chrome.scripting.insertCSS({
+        target: { tabId: tab.id },
+        files: ['content/content.css']
+      });
+
+      // Send summarize message
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'summarize',
+        settings: {
+          aiProvider: aiProviderSelect.value,
+          apiKey: apiKeyInput.value
+        }
+      });
+
+      window.close();
+    } catch (error) {
+      console.error('Summarize error:', error);
+      showStatus(error.message || 'Failed to summarize', 'error');
+      summarizeBtn.disabled = false;
+    }
+  });
+
   // Clear queue button
   const clearQueueBtn = document.getElementById('clearQueueBtn');
   clearQueueBtn.addEventListener('click', async () => {
