@@ -121,7 +121,7 @@ var SelectionPrompt = (function() {
    */
   function buildPrompt(type, text) {
     var prompts = {
-      explain: 'Explain the following in simple terms:\n\n"' + text + '"',
+      explain: 'Explain the following in simple terms, as briefly as possible:\n\n"' + text + '"',
       how: 'How does this work or how is this done?\n\n"' + text + '"',
       why: 'Why is this the case? What is the reasoning behind this?\n\n"' + text + '"'
     };
@@ -231,12 +231,14 @@ var SelectionPrompt = (function() {
     var contentClass = isLoading ? 'readable-selection-loading' :
                        isError ? 'readable-selection-error' : 'readable-selection-response';
 
+    var displayContent = isLoading || isError ? escapeHtml(content) : Utils.renderMarkdown(content);
+
     responsePanel.innerHTML =
       '<div class="readable-selection-panel-header">' +
         '<span>Response</span>' +
         '<button class="readable-selection-close">&times;</button>' +
       '</div>' +
-      '<div class="' + contentClass + '">' + escapeHtml(content) + '</div>';
+      '<div class="' + contentClass + '">' + displayContent + '</div>';
 
     positionPanel(responsePanel, rect);
     document.body.appendChild(responsePanel);
