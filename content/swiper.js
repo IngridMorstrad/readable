@@ -515,19 +515,21 @@ var Swiper = (function() {
 
   /**
    * Update export button visibility and count
+   * NOTE: Flashcard feature hidden - not ready for release
    */
   function updateExportCount(count) {
-    if (!container) return;
-    var exportBtn = container.querySelector('.readable-export');
-    var countEl = container.querySelector('.readable-export-count');
-    if (exportBtn && countEl) {
-      if (count > 0) {
-        exportBtn.style.display = 'flex';
-        countEl.textContent = count;
-      } else {
-        exportBtn.style.display = 'none';
-      }
-    }
+    // Feature hidden for now - uncomment below to re-enable
+    // if (!container) return;
+    // var exportBtn = container.querySelector('.readable-export');
+    // var countEl = container.querySelector('.readable-export-count');
+    // if (exportBtn && countEl) {
+    //   if (count > 0) {
+    //     exportBtn.style.display = 'flex';
+    //     countEl.textContent = count;
+    //   } else {
+    //     exportBtn.style.display = 'none';
+    //   }
+    // }
   }
 
   // Public API
