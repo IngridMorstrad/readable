@@ -36,8 +36,21 @@
       var article;
       var blocks;
 
-      // Check for Twitter/X thread first
-      if (typeof TwitterParser !== 'undefined' && TwitterParser.isTwitterThread()) {
+      // Check for selected text first (user selected before clicking extension)
+      if (options.selectedText && options.selectedText.trim().length > 10) {
+        var selectedText = options.selectedText.trim();
+        var wordCount = selectedText.split(/\s+/).filter(Boolean).length;
+        var titlePreview = selectedText.substring(0, 50).replace(/\s+/g, ' ');
+        if (selectedText.length > 50) titlePreview += '...';
+
+        article = {
+          title: 'Selected Text',
+          excerpt: wordCount + ' words: "' + titlePreview + '"'
+        };
+        blocks = [{ type: 'text', content: selectedText }];
+      }
+      // Check for Twitter/X thread
+      else if (typeof TwitterParser !== 'undefined' && TwitterParser.isTwitterThread()) {
         var thread = TwitterParser.extractThread();
         if (!thread) {
           alert('Could not extract thread. Make sure you are on a tweet/thread page.');

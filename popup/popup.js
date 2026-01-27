@@ -143,6 +143,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         throw new Error('No active tab found');
       }
 
+      // Capture any selected text BEFORE injecting scripts (injection may clear selection)
+      let selectedText = '';
+      try {
+        const selectionResult = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => window.getSelection().toString()
+        });
+        selectedText = selectionResult[0]?.result || '';
+      } catch (e) {
+        // Selection capture failed (e.g., restricted page), continue without it
+      }
+
       // Inject content scripts
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -162,7 +174,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           chunkSize: parseInt(chunkSizeSlider.value),
           questionInterval: parseInt(questionIntervalSlider.value),
           aiProvider: aiProviderSelect.value,
-          apiKey: apiKeyInput.value
+          apiKey: apiKeyInput.value,
+          selectedText: selectedText
         }
       });
 
