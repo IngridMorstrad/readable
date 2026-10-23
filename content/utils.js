@@ -13,6 +13,101 @@ var Utils = (function() {
   }
 
   /**
+   * Sanitize HTML that originated from an untrusted page or API response.
+   *
+   * Removes script-capable elements, inline event handlers, and dangerous
+   * URL schemes while preserving normal article markup (including MathML
+   * and inline SVG used by KaTeX/MathJax).
+   */
+  function sanitizeHtml(html) {
+    if (!html) return '';
+
+    var template = document.createElement('template');
+    template.innerHTML = String(html);
+
+    var forbiddenTags = {
+      SCRIPT: true,
+      STYLE: true,
+      IFRAME: true,
+      FRAME: true,
+      FRAMESET: true,
+      OBJECT: true,
+      EMBED: true,
+      APPLET: true,
+      LINK: true,
+      META: true,
+      BASE: true,
+      FORM: true,
+      INPUT: true,
+      BUTTON: true,
+      TEXTAREA: true,
+      SELECT: true,
+      OPTION: true,
+      NOSCRIPT: true,
+      TEMPLATE: true,
+      // Active SVG/MathML elements can mutate attributes or load content.
+      ANIMATE: true,
+      ANIMATEMOTION: true,
+      ANIMATETRANSFORM: true,
+      SET: true,
+      DISCARD: true,
+      FOREIGNOBJECT: true
+    };
+
+    var urlAttrs = {
+      href: true,
+      src: true,
+      action: true,
+      formaction: true,
+      poster: true,
+      background: true,
+      ping: true,
+      srcset: true,
+      'xlink:href': true
+    };
+
+    function isSafeUrl(value) {
+      // Normalize before checking so obfuscated schemes (e.g. "java\nscript:")
+      // are still caught.
+      var normalized = String(value)
+        .replace(/[\u0000-\u0020]+/g, '')
+        .toLowerCase();
+      if (/^(javascript|vbscript):/.test(normalized)) return false;
+      // data: URLs are only safe for images; data:text/html is script-capable.
+      if (/^data:/.test(normalized)) return /^data:image\//.test(normalized);
+      return true;
+    }
+
+    // Collect first: removing nodes while walking mutates the live tree.
+    var elements = Array.prototype.slice.call(
+      template.content.querySelectorAll('*')
+    );
+
+    elements.forEach(function(el) {
+      // SVG elements keep lowercase tagName values, so compare uppercased.
+      if (forbiddenTags[el.tagName.toUpperCase()]) {
+        el.remove();
+        return;
+      }
+
+      Array.prototype.slice.call(el.attributes).forEach(function(attr) {
+        var name = attr.name.toLowerCase();
+
+        if (name.indexOf('on') === 0 || name === 'srcdoc') {
+          el.removeAttribute(attr.name);
+          return;
+        }
+
+        if (urlAttrs[name] && !isSafeUrl(attr.value)) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+
+    return template.innerHTML;
+  }
+
+  /**
    * Convert markdown to HTML (safe - escapes input first)
    */
   function renderMarkdown(text) {
@@ -100,6 +195,7 @@ var Utils = (function() {
 
   return {
     escapeHtml: escapeHtml,
+    sanitizeHtml: sanitizeHtml,
     renderMarkdown: renderMarkdown,
     formatWordCount: formatWordCount,
     sendMessage: sendMessage

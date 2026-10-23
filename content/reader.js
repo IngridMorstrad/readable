@@ -119,7 +119,8 @@ var Reader = (function() {
    */
   function parseContent(html) {
     var temp = document.createElement('div');
-    temp.innerHTML = html;
+    // Readability output is derived from the page and must be sanitized.
+    temp.innerHTML = Utils.sanitizeHtml(html);
 
     var blocks = [];
     var blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE', 'DIV'];

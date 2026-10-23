@@ -17,6 +17,18 @@ var Swiper = (function() {
   var onClose = null;
 
   /**
+   * Sanitize slide HTML before it is assigned to innerHTML. Slides contain
+   * article content and generated quiz markup, both of which may originate
+   * from an arbitrary page.
+   */
+  function safeSlideHtml(html) {
+    if (typeof Utils !== 'undefined' && Utils.sanitizeHtml) {
+      return Utils.sanitizeHtml(html);
+    }
+    return '';
+  }
+
+  /**
    * Initialize the swiper
    */
   function init(options) {
@@ -100,11 +112,11 @@ var Swiper = (function() {
 
       if (slide.type === 'quiz') {
         card.classList.add('readable-card-quiz');
-        card.innerHTML = slide.html;
+        card.innerHTML = safeSlideHtml(slide.html);
       } else {
         card.innerHTML = `
           <div class="readable-card-content">
-            ${slide.html}
+            ${safeSlideHtml(slide.html)}
           </div>
         `;
       }
@@ -126,11 +138,11 @@ var Swiper = (function() {
 
     if (slide.type === 'quiz') {
       card.classList.add('readable-card-quiz');
-      card.innerHTML = slide.html;
+      card.innerHTML = safeSlideHtml(slide.html);
     } else {
       card.innerHTML = `
         <div class="readable-card-content">
-          ${slide.html}
+          ${safeSlideHtml(slide.html)}
         </div>
       `;
     }

@@ -115,9 +115,12 @@ var KeyTerms = (function() {
   function markTermsInHtml(html, terms) {
     if (!terms || terms.length === 0) return html;
 
+    // Article HTML comes from the page, so sanitize before it touches the DOM.
+    var safeHtml = Utils.sanitizeHtml(html);
+
     // Create a temporary div to work with
     var temp = document.createElement('div');
-    temp.innerHTML = html;
+    temp.innerHTML = safeHtml;
 
     // Walk text nodes and wrap terms
     walkTextNodes(temp, function(textNode) {
@@ -126,23 +129,36 @@ var KeyTerms = (function() {
 
       if (detectedInNode.length === 0) return;
 
-      // Sort by position descending to replace from end
-      detectedInNode.sort(function(a, b) { return b.start - a.start; });
-
-      var newHtml = text;
-      detectedInNode.forEach(function(t) {
-        var before = newHtml.substring(0, t.start);
-        var term = newHtml.substring(t.start, t.end);
-        var after = newHtml.substring(t.end);
-        newHtml = before +
-          '<span class="readable-key-term" data-term="' + escapeHtml(term.toLowerCase()) + '">' +
-          term + '</span>' + after;
+      // Build the replacement with DOM nodes (never innerHTML) so text that
+      // happens to contain markup characters cannot create elements.
+      var sorted = detectedInNode.slice().sort(function(a, b) {
+        return a.start - b.start;
       });
 
-      var span = document.createElement('span');
-      span.innerHTML = newHtml;
+      var fragment = document.createDocumentFragment();
+      var cursor = 0;
 
-      textNode.parentNode.replaceChild(span, textNode);
+      sorted.forEach(function(t) {
+        if (t.start < cursor || t.end > text.length) return;
+
+        if (t.start > cursor) {
+          fragment.appendChild(document.createTextNode(text.slice(cursor, t.start)));
+        }
+
+        var span = document.createElement('span');
+        span.className = 'readable-key-term';
+        span.setAttribute('data-term', text.slice(t.start, t.end).toLowerCase());
+        span.textContent = text.slice(t.start, t.end);
+        fragment.appendChild(span);
+
+        cursor = t.end;
+      });
+
+      if (cursor < text.length) {
+        fragment.appendChild(document.createTextNode(text.slice(cursor)));
+      }
+
+      textNode.parentNode.replaceChild(fragment, textNode);
     });
 
     return temp.innerHTML;
